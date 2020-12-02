@@ -1,0 +1,8 @@
+.idea
+.exercism
+.bsp
+.gradle
+*.iml
+build
+target
+project
