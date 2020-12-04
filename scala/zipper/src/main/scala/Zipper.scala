@@ -33,7 +33,7 @@ object Zipper {
 // A binary tree.
 case class BinTree[A](value: A, left: Option[BinTree[A]], right: Option[BinTree[A]])
 
-class Zipper[A](val tree: BinTree[A], path: List[Direction[A]] = List()) {
+class Zipper[A](val tree: BinTree[A], val path: List[Direction[A]] = List()) {
   lazy val left: Option[Zipper[A]] = down(Left())
   lazy val right: Option[Zipper[A]] = down(Right())
   lazy val up: Option[Zipper[A]] = if (path.nonEmpty) Some(new Zipper[A](tree, path.tail)) else None
@@ -41,28 +41,37 @@ class Zipper[A](val tree: BinTree[A], path: List[Direction[A]] = List()) {
 
   private def down(d: Direction[A]): Option[Zipper[A]] = d.move(focused).map(_ => new Zipper[A](tree, d +: path))
 
-  def replace(node: Option[BinTree[A]], d: Direction[A]): Zipper[A] = up match {
-    case None => new Zipper[A](d.replace(tree, node), path)
-    case Some(upper) => upper.replace(Some(d.replace(focused, node)), path.head)
+  def replace(node: Option[BinTree[A]], d: Direction[A]): Zipper[A] = {
+    def rebuild(tree: BinTree[A], path: List[Direction[A]]): BinTree[A] = {
+      path match {
+        case Nil => d.replace(tree, node)
+        case p :: ps => p.replace(tree, Some(rebuild(p.move(tree).get, ps)))
+      }
+    }
+
+    new Zipper[A](rebuild(tree, path.reverse), path)
   }
 
-  def set(v: A): Zipper[A] = up match {
-    case None => new Zipper[A](BinTree(v, tree.left, tree.right), path)
-    case Some(upper) => upper.replace(Some(BinTree(v, focused.left, focused.right)), path.head)
+  def set(v: A): Zipper[A] = {
+    val node = BinTree(v, focused.left, focused.right)
+    up.map(_.replace(Some(node), path.head)).getOrElse(new Zipper[A](node))
   }
 }
 
 sealed trait Direction[A] {
   def move(tree: BinTree[A]): Option[BinTree[A]]
+
   def replace(tree: BinTree[A], node: Option[BinTree[A]]): BinTree[A]
 }
 
 sealed case class Left[A]() extends Direction[A] {
   def move(tree: BinTree[A]): Option[BinTree[A]] = tree.left
+
   def replace(tree: BinTree[A], l: Option[BinTree[A]]): BinTree[A] = BinTree[A](tree.value, l, tree.right)
 }
 
 sealed case class Right[A]() extends Direction[A] {
   def move(tree: BinTree[A]): Option[BinTree[A]] = tree.right
+
   def replace(tree: BinTree[A], r: Option[BinTree[A]]): BinTree[A] = BinTree[A](tree.value, tree.left, r)
 }
