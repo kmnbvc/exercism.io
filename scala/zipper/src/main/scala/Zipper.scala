@@ -9,16 +9,16 @@ object Zipper {
   def toTree[A](zipper: Zipper[A]): BinTree[A] = zipper.tree
 
   // Get the value of the focus node.
-  def value[A](zipper: Zipper[A]): A = zipper.focused().value
+  def value[A](zipper: Zipper[A]): A = zipper.focused.value
 
   // Get the left child of the focus node, if any.
-  def left[A](zipper: Zipper[A]): Option[Zipper[A]] = zipper.down(Left())
+  def left[A](zipper: Zipper[A]): Option[Zipper[A]] = zipper.left
 
   // Get the right child of the focus node, if any.
-  def right[A](zipper: Zipper[A]): Option[Zipper[A]] = zipper.down(Right())
+  def right[A](zipper: Zipper[A]): Option[Zipper[A]] = zipper.right
 
   // Get the parent of the focus node, if any.
-  def up[A](zipper: Zipper[A]): Option[Zipper[A]] = zipper.up()
+  def up[A](zipper: Zipper[A]): Option[Zipper[A]] = zipper.up
 
   // Set the value of the focus node.
   def setValue[A](v: A, zipper: Zipper[A]): Zipper[A] = zipper.set(v)
@@ -34,33 +34,35 @@ object Zipper {
 case class BinTree[A](value: A, left: Option[BinTree[A]], right: Option[BinTree[A]])
 
 class Zipper[A](val tree: BinTree[A], path: List[Direction[A]] = List()) {
-  def down(d: Direction[A]): Option[Zipper[A]] = d.move(focused()).map(_ => new Zipper[A](tree, d +: path))
-  def up(): Option[Zipper[A]] = if (path.nonEmpty) Some(new Zipper[A](tree, path.tail)) else None
-  def focused(): BinTree[A] = path.foldRight(tree)((d, t) => d.move(t).get)
-  def replace(node: Option[BinTree[A]], d: Direction[A]): Zipper[A] = {
-    (path, d) match {
-      case (Nil, Left()) => new Zipper[A](BinTree(tree.value, node, tree.right), path)
-      case (Nil, Right()) => new Zipper[A](BinTree(tree.value, tree.left, node), path)
-      case (p::_, Left()) => up().get.replace(Some(BinTree(focused().value, node, focused().right)), p)
-      case (p::_, Right()) => up().get.replace(Some(BinTree(focused().value, focused().left, node)), p)
-    }
+  lazy val left: Option[Zipper[A]] = down(Left())
+  lazy val right: Option[Zipper[A]] = down(Right())
+  lazy val up: Option[Zipper[A]] = if (path.nonEmpty) Some(new Zipper[A](tree, path.tail)) else None
+  lazy val focused: BinTree[A] = path.foldRight(tree)((d, t) => d.move(t).get)
+
+  private def down(d: Direction[A]): Option[Zipper[A]] = d.move(focused).map(_ => new Zipper[A](tree, d +: path))
+
+  def replace(node: Option[BinTree[A]], d: Direction[A]): Zipper[A] = up match {
+    case None => new Zipper[A](d.replace(tree, node), path)
+    case Some(upper) => upper.replace(Some(d.replace(focused, node)), path.head)
   }
-  def set(v: A): Zipper[A] = {
-    path match {
-      case d::_ => up().get.replace(Some(BinTree(v, focused().left, focused().right)), d)
-      case _ => new Zipper[A](BinTree(v, tree.left, tree.right), path)
-    }
+
+  def set(v: A): Zipper[A] = up match {
+    case None => new Zipper[A](BinTree(v, tree.left, tree.right), path)
+    case Some(upper) => upper.replace(Some(BinTree(v, focused.left, focused.right)), path.head)
   }
 }
 
 sealed trait Direction[A] {
   def move(tree: BinTree[A]): Option[BinTree[A]]
+  def replace(tree: BinTree[A], node: Option[BinTree[A]]): BinTree[A]
 }
 
 sealed case class Left[A]() extends Direction[A] {
   def move(tree: BinTree[A]): Option[BinTree[A]] = tree.left
+  def replace(tree: BinTree[A], l: Option[BinTree[A]]): BinTree[A] = BinTree[A](tree.value, l, tree.right)
 }
 
 sealed case class Right[A]() extends Direction[A] {
   def move(tree: BinTree[A]): Option[BinTree[A]] = tree.right
+  def replace(tree: BinTree[A], r: Option[BinTree[A]]): BinTree[A] = BinTree[A](tree.value, tree.left, r)
 }
