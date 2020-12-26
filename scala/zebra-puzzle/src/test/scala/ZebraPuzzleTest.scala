@@ -9,4 +9,6 @@ class ZebraPuzzleTest extends FunSuite with Matchers {
         Solution(waterDrinker = Norwegian,
                  zebraOwner = Japanese))
   }
+
+
 }
