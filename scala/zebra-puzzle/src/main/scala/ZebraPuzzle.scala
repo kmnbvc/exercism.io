@@ -1,4 +1,3 @@
-import scala.Function.const
 import scala.util.Try
 
 object ZebraPuzzle {
@@ -16,33 +15,40 @@ object ZebraPuzzle {
       smokes <- Seq(Kools, LuckyStrike, OldGold, Chesterfields, Parliaments).permutations if smokeRules(colors, nations, drinks, pets, smokes)
     } yield Solution(nations(drinks.indexOf(Water)), nations(pets.indexOf(Zebra)))
 
-    solutions.find(const(true))
+    solutions.toStream.headOption
   }
 
-  private def colorRules(colors: Seq[Color]): Boolean = Try(colors(colors.indexOf(Green) - 1) == Ivory).getOrElse(false)
+  private def colorRules(colors: Seq[Color]): Boolean = colors.containsSlice(Seq(Ivory, Green))
 
   private def nationRules(colors: Seq[Color], nations: Seq[Resident]): Boolean =
-    nations.head == Norwegian && colors(nations.indexOf(Englishman)) == Red &&
-      (Try(colors(nations.indexOf(Norwegian) - 1) == Blue).getOrElse(false) ||
-        Try(colors(nations.indexOf(Norwegian) + 1) == Blue).getOrElse(false))
+    nations.head == Norwegian &&
+      belongsTo(Red, Englishman, colors, nations) &&
+      nextTo(Blue, Norwegian, colors, nations)
 
   private def drinkRules(colors: Seq[Color], nations: Seq[Resident], drinks: Seq[Drink]): Boolean =
-    drinks(nations.indexOf(Ukrainian)) == Tea &&
-      drinks(colors.indexOf(Green)) == Coffee &&
+    belongsTo(Tea, Ukrainian, drinks, nations) &&
+      belongsTo(Coffee, Green, drinks, colors) &&
       drinks(2) == Milk
 
-  private def petRules(nations: Seq[Resident], pets: Seq[Pet]): Boolean = pets(nations.indexOf(Spaniard)) == Dog
+  private def petRules(nations: Seq[Resident], pets: Seq[Pet]): Boolean = belongsTo(Dog, Spaniard, pets, nations)
 
   private def smokeRules(colors: Seq[Color], nations: Seq[Resident], drinks: Seq[Drink], pets: Seq[Pet], smokes: Seq[Smoke]): Boolean =
-    pets(smokes.indexOf(OldGold)) == Snails &&
-      smokes(colors.indexOf(Yellow)) == Kools &&
-      (Try(pets(smokes.indexOf(Chesterfields) - 1) == Fox).getOrElse(false) ||
-        Try(pets(smokes.indexOf(Chesterfields) + 1) == Fox).getOrElse(false)) &&
-      drinks(smokes.indexOf(LuckyStrike)) == OrangeJuice &&
-      (Try(smokes(pets.indexOf(Horse) - 1) == Kools).getOrElse(false) ||
-        Try(smokes(pets.indexOf(Horse) + 1) == Kools).getOrElse(false)) &&
-      smokes(nations.indexOf(Japanese)) == Parliaments
+    belongsTo(Snails, OldGold, pets, smokes) &&
+      belongsTo(Kools, Yellow, smokes, colors) &&
+      nextTo(Fox, Chesterfields, pets, smokes) &&
+      belongsTo(OrangeJuice, LuckyStrike, drinks, smokes) &&
+      nextTo(Kools, Horse, smokes, pets) &&
+      belongsTo(Parliaments, Japanese, smokes, nations)
 
+
+  private def belongsTo[A, T](value: A, target: T, values: Seq[A], targets: Seq[T]): Boolean = {
+    values(targets.indexOf(target)) == value
+  }
+
+  private def nextTo[A, T](value: A, target: T, values: Seq[A], targets: Seq[T]): Boolean = {
+    Try(values(targets.indexOf(target) - 1) == value).getOrElse(false) ||
+      Try(values(targets.indexOf(target) + 1) == value).getOrElse(false)
+  }
 
   sealed trait Resident
   case object Englishman extends Resident
@@ -57,21 +63,21 @@ object ZebraPuzzle {
   case object Yellow extends Color
   case object Ivory extends Color
   case object Green extends Color
-  
+
   sealed trait Drink
   case object Tea extends Drink
   case object Coffee extends Drink
   case object Milk extends Drink
   case object OrangeJuice extends Drink
   case object Water extends Drink
-  
+
   sealed trait Pet
   case object Dog extends Pet
   case object Fox extends Pet
   case object Snails extends Pet
   case object Horse extends Pet
   case object Zebra extends Pet
-  
+
   sealed trait Smoke
   case object Kools extends Smoke
   case object LuckyStrike extends Smoke
