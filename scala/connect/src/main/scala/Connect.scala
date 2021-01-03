@@ -4,12 +4,13 @@ case class Connect(lines: List[String]) {
   type Line = List[(Char, Int)]
   type Path = List[(Char, Int)]
 
-  private val whites = lines.map(_.zipWithIndex.filter(_._1 == 'O').toList)
-  private val blacks = lines.transpose.map(_.zipWithIndex.filter(_._1 == 'X').toList)
-
   def winner(): Option[Color] = {
-    val results = List((Color.White, findPath(Nil, whites, Nil)), (Color.Black, findPath(Nil, blacks, Nil)))
-    results.find(_._2.nonEmpty).map(_._1)
+    val whites = lines.map(_.zipWithIndex.filter(_._1 == 'O').toList)
+    val blacks = lines.transpose.map(_.zipWithIndex.filter(_._1 == 'X').toList)
+    val whWin = findPath(Nil, whites, Nil).headOption.map(_ => Color.White)
+    val blWin = findPath(Nil, blacks, Nil).headOption.map(_ => Color.Black)
+
+    whWin orElse blWin
   }
 
   def findPath(behind: List[Line], ahead: List[Line], paths: List[Path]): List[Path] = {
@@ -21,32 +22,14 @@ case class Connect(lines: List[String]) {
       case (prevLine :: _, line :: _, _) =>
         val nextPaths = findNextPaths(line, paths, -1)
         val left = line.diff(nextPaths.map(_.head))
-
         val upperPaths = findNextPaths(prevLine, nextPaths, 1)
 
-        //        println("line: " + line.mkString(",") + "\n",
-        //          "paths: " + paths  + "\n",
-        //          "nextPaths: " + nextPaths  + "\n",
-        //          "upperPaths: " + upperPaths  + "\n",
-        //          "line behind: " + prevLine  + "\n")
+        if (upperPaths.nonEmpty) findPath(behind.tail, prevLine :: ahead, upperPaths)
+        else findPath(left :: behind, ahead.tail, nextPaths)
 
-        findPath(behind.tail, prevLine :: ahead, upperPaths) ++ findPath(left :: behind, ahead.tail, nextPaths)
       case _ => throw new RuntimeException
     }
   }
-
-  /*
-    OOOOOOOOX
-    XXXXXXXOX
-    XOOOOOXOX
-    XOXXXOXOX
-    XOXOXOXOX
-    XOXOXXXOX
-    XOXOOOOOX
-    XOXXXXXXX
-    XOOOOOOOO
-   */
-
 
   def findNextPaths(line: Line, paths: List[Path], nearbyModifier: Int): List[Path] = paths.flatMap {
     case lastStep :: steps =>
